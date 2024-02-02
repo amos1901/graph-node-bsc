@@ -197,6 +197,14 @@ where
         loop {
             debug!(self.logger, "Starting or restarting subgraph");
 
+            let last_good_block: i32 = self
+                .inputs
+                .store
+                .block_ptr()
+                .map(|ptr| ptr.number)
+                .unwrap_or(0);
+            self.revert_state_to(last_good_block)?;
+
             let block_stream_canceler = CancelGuard::new();
             let block_stream_cancel_handle = block_stream_canceler.handle();
             // TriggerFilter needs to be rebuilt eveytime the blockstream is restarted
@@ -255,9 +263,6 @@ where
                         // might have encountered and use that from now on
                         let store = self.inputs.store.cheap_clone();
                         if let Some(store) = store.restart().await? {
-                            let last_good_block =
-                                store.block_ptr().map(|ptr| ptr.number).unwrap_or(0);
-                            self.revert_state_to(last_good_block)?;
                             self.inputs = Arc::new(self.inputs.with_store(store));
                             self.state.synced = self.inputs.store.is_deployment_synced().await?;
                         }
